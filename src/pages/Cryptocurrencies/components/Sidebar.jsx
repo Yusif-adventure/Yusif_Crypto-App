@@ -1,4 +1,7 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { fetchTopGainers, fetchNewListings } from "../../../utils/api";
+import AddCrypto from "./AddCrypto";
 
 const topMovers = [
   {
@@ -60,6 +63,55 @@ const newOnCoinbase = [
 ];
 
 export default function Sidebar() {
+  const [topGainers, setTopGainers] = useState([]);
+  const [newListings, setNewListings] = useState([]);
+  const [loadingGainers, setLoadingGainers] = useState(true);
+  const [loadingNew, setLoadingNew] = useState(true);
+
+  useEffect(() => {
+    const loadSidebarData = async () => {
+      try {
+        // Load top gainers
+        const gainersResponse = await fetchTopGainers();
+        if (gainersResponse.success && gainersResponse.data) {
+          const transformedGainers = gainersResponse.data.slice(0, 4).map(crypto => ({
+            symbol: crypto.symbol,
+            name: crypto.name,
+            change: `${crypto.change24h >= 0 ? '+' : ''}${crypto.change24h.toFixed(2)}%`,
+            price: `$${crypto.price.toLocaleString()}`,
+            icon: crypto.image,
+            link: `/price/${crypto.symbol.toLowerCase()}`,
+          }));
+          setTopGainers(transformedGainers);
+        }
+      } catch (error) {
+        console.error("Failed to load top gainers:", error);
+      } finally {
+        setLoadingGainers(false);
+      }
+
+      try {
+        // Load new listings
+        const newResponse = await fetchNewListings();
+        if (newResponse.success && newResponse.data) {
+          const transformedNew = newResponse.data.slice(0, 3).map(crypto => ({
+            symbol: crypto.symbol,
+            name: crypto.name,
+            addedDate: `Added ${new Date(crypto.createdAt).toLocaleDateString()}`,
+            icon: crypto.image,
+            link: `/price/${crypto.symbol.toLowerCase()}`,
+          }));
+          setNewListings(transformedNew);
+        }
+      } catch (error) {
+        console.error("Failed to load new listings:", error);
+      } finally {
+        setLoadingNew(false);
+      }
+    };
+
+    loadSidebarData();
+  }, []);
   return (
     <aside className="space-y-6">
       {/* Promo card */}
@@ -136,7 +188,7 @@ export default function Sidebar() {
         <p className="text-[12px] text-gray-400 mb-3">24hr change</p>
 
         <div className="grid grid-cols-2 gap-3">
-          {topMovers.slice(0, 2).map((mover) => (
+          {(loadingGainers ? topMovers.slice(0, 2) : topGainers.slice(0, 2)).map((mover) => (
             <Link
               key={mover.symbol}
               to={mover.link}
@@ -150,17 +202,32 @@ export default function Sidebar() {
               <div className="text-[11px] font-medium text-gray-400 mb-1">
                 {mover.symbol}
               </div>
-              <div className="text-[14px] font-bold text-green-500 flex items-center justify-center gap-0.5">
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path
-                    d="M5 8V2M5 2L2 5M5 2l3 3"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                {mover.change.replace("+", "")}
+              <div className={`text-[14px] font-bold flex items-center justify-center gap-0.5 ${
+                mover.change.includes('+') ? 'text-green-500' : 'text-red-500'
+              }`}>
+                {mover.change.includes('+') && (
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M5 8V2M5 2L2 5M5 2l3 3"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+                {mover.change.includes('-') && (
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M5 2v6M5 8L2 5M5 8l3-3"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+                {mover.change.replace(/[+-]/, "")}
               </div>
               <div className="text-[11px] text-gray-400 mt-1">
                 {mover.price}
@@ -205,7 +272,7 @@ export default function Sidebar() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {newOnCoinbase.slice(0, 2).map((coin) => (
+          {(loadingNew ? newOnCoinbase.slice(0, 2) : newListings.slice(0, 2)).map((coin) => (
             <Link
               key={coin.symbol}
               to={coin.link}
@@ -228,6 +295,11 @@ export default function Sidebar() {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* Add New Crypto */}
+      <div>
+        <AddCrypto />
       </div>
     </aside>
   );

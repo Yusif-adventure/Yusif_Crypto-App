@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { fetchAllCryptos } from "../../../utils/api";
 
 const cryptoAssets = [
   {
@@ -167,8 +168,48 @@ export default function CryptoTable() {
   const [sortDir, setSortDir] = useState("desc");
   const [expanded, setExpanded] = useState(false);
 
-  const totalAssets = 18591;
-  const totalPages = 1860;
+  // New state for API data
+  const [cryptoAssets, setCryptoAssets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadCryptos = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetchAllCryptos();
+        if (response.success && response.data) {
+          // Transform the data to match the expected format
+          const transformedData = response.data.map((crypto, index) => ({
+            rank: index + 1,
+            name: crypto.name,
+            symbol: crypto.symbol,
+            icon: crypto.image,
+            price: `$${crypto.price.toLocaleString()}`,
+            change: crypto.change24h,
+            mktCap: "N/A", // We don't have market cap in our schema
+            volume: "N/A", // We don't have volume in our schema
+            sparkline: "M0,15 L5,16 L10,14 L15,17 L20,13 L25,16 L30,12 L35,15 L40,11 L45,14 L50,10", // Placeholder sparkline
+            link: `/price/${crypto.symbol.toLowerCase()}`,
+            tradable: true,
+          }));
+          setCryptoAssets(transformedData);
+        } else {
+          setError("Failed to load cryptocurrency data");
+        }
+      } catch (err) {
+        setError(err.message || "Failed to load cryptocurrency data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCryptos();
+  }, []);
+
+  const totalAssets = cryptoAssets.length;
+  const totalPages = Math.ceil(totalAssets / selectedRows);
 
   return (
     <section className="mb-10 pt-10">
@@ -367,150 +408,191 @@ export default function CryptoTable() {
             </tr>
           </thead>
           <tbody>
-            {cryptoAssets.map((asset) => (
-              <tr
-                key={asset.symbol}
-                className="border-b border-gray-100 hover:bg-gray-50 transition"
-              >
-                {/* Star / Favorite */}
-                <td className="py-5 pr-2 pl-1">
-                  <button className="text-gray-300 hover:text-yellow-400 transition">
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                    </svg>
-                  </button>
-                </td>
-
-                {/* Asset name */}
-                <td className="py-5 px-3">
-                  <Link to={asset.link} className="flex items-center gap-3">
-                    <img
-                      src={asset.icon}
-                      alt={asset.name}
-                      className="w-8 h-8 rounded-full shrink-0"
-                    />
-                    <div>
-                      <div className="font-medium text-[14px] text-gray-900">
-                        {asset.name}
-                      </div>
-                      <div className="text-[12px] text-gray-400 mt-0.5">
-                        {asset.symbol}
-                      </div>
-                      {asset.subtitle && (
-                        <div className="text-xs text-blue-600">
-                          {asset.subtitle}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                </td>
-
-                {/* Price (hidden on mobile — shown via change column) */}
-                <td className="py-5 px-3 font-medium text-[14px] hidden md:table-cell">
-                  {asset.price}
-                </td>
-
-                {/* Sparkline chart */}
-                <td className="py-5 px-3 hidden lg:table-cell">
-                  <svg
-                    viewBox="0 0 50 30"
-                    className="w-20 h-8"
-                    preserveAspectRatio="none"
-                  >
-                    <path
-                      d={asset.sparkline}
-                      fill="none"
-                      stroke={
-                        asset.change < 0
-                          ? "#ef4444"
-                          : asset.change > 0
-                            ? "#22c55e"
-                            : "#9ca3af"
-                      }
-                      strokeWidth="1.5"
-                    />
-                  </svg>
-                </td>
-
-                {/* Change */}
-                <td className="py-5 px-3">
-                  <div className="md:hidden text-[12px] text-gray-900 font-medium mb-0.5">
-                    {asset.price}
+            {loading ? (
+              <tr>
+                <td colSpan="8" className="py-12 text-center">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <span className="text-gray-600">Loading cryptocurrencies...</span>
                   </div>
-                  <span
-                    className={`text-[14px] font-medium flex items-center gap-0.5 ${
-                      asset.change < 0
-                        ? "text-red-500"
-                        : asset.change > 0
-                          ? "text-green-500"
-                          : "text-gray-500"
-                    }`}
-                  >
-                    {asset.change < 0 ? (
-                      <svg
-                        width="10"
-                        height="10"
-                        viewBox="0 0 10 10"
-                        fill="none"
-                      >
-                        <path
-                          d="M5 2v6M5 8L2 5M5 8l3-3"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    ) : asset.change > 0 ? (
-                      <svg
-                        width="10"
-                        height="10"
-                        viewBox="0 0 10 10"
-                        fill="none"
-                      >
-                        <path
-                          d="M5 8V2M5 2L2 5M5 2l3 3"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    ) : null}
-                    {Math.abs(asset.change).toFixed(2)}%
-                  </span>
-                </td>
-
-                {/* Market cap */}
-                <td className="py-5 px-3 hidden md:table-cell text-[14px] text-gray-600">
-                  {asset.mktCap}
-                </td>
-
-                {/* Volume */}
-                <td className="py-5 px-3 hidden lg:table-cell text-[14px] text-gray-600">
-                  {asset.volume}
-                </td>
-
-                {/* Trade button */}
-                <td className="py-5 px-3 text-right">
-                  {asset.tradable && (
-                    <Link
-                      to="/signup"
-                      className="inline-flex px-5 py-2 text-[13px] font-semibold text-white bg-blue-600 rounded-full hover:bg-blue-700 transition"
-                    >
-                      Trade
-                    </Link>
-                  )}
                 </td>
               </tr>
-            ))}
+            ) : error ? (
+              <tr>
+                <td colSpan="8" className="py-12 text-center">
+                  <div className="text-red-600">
+                    <svg className="mx-auto h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <p className="text-lg font-medium">Failed to load cryptocurrencies</p>
+                    <p className="text-sm mt-1">{error}</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ) : cryptoAssets.length === 0 ? (
+              <tr>
+                <td colSpan="8" className="py-12 text-center">
+                  <div className="text-gray-500">
+                    <svg className="mx-auto h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <p className="text-lg font-medium">No cryptocurrencies found</p>
+                    <p className="text-sm mt-1">Add some cryptocurrencies to get started</p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              cryptoAssets.map((asset) => (
+                <tr
+                  key={asset.symbol}
+                  className="border-b border-gray-100 hover:bg-gray-50 transition"
+                >
+                  {/* Star / Favorite */}
+                  <td className="py-5 pr-2 pl-1">
+                    <button className="text-gray-300 hover:text-yellow-400 transition">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                      </svg>
+                    </button>
+                  </td>
+
+                  {/* Asset name */}
+                  <td className="py-5 px-3">
+                    <Link to={asset.link} className="flex items-center gap-3">
+                      <img
+                        src={asset.icon}
+                        alt={asset.name}
+                        className="w-8 h-8 rounded-full shrink-0"
+                      />
+                      <div>
+                        <div className="font-medium text-[14px] text-gray-900">
+                          {asset.name}
+                        </div>
+                        <div className="text-[12px] text-gray-400 mt-0.5">
+                          {asset.symbol}
+                        </div>
+                        {asset.subtitle && (
+                          <div className="text-xs text-blue-600">
+                            {asset.subtitle}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  </td>
+
+                  {/* Price (hidden on mobile — shown via change column) */}
+                  <td className="py-5 px-3 font-medium text-[14px] hidden md:table-cell">
+                    {asset.price}
+                  </td>
+
+                  {/* Sparkline chart */}
+                  <td className="py-5 px-3 hidden lg:table-cell">
+                    <svg
+                      viewBox="0 0 50 30"
+                      className="w-20 h-8"
+                      preserveAspectRatio="none"
+                    >
+                      <path
+                        d={asset.sparkline}
+                        fill="none"
+                        stroke={
+                          asset.change < 0
+                            ? "#ef4444"
+                            : asset.change > 0
+                              ? "#22c55e"
+                              : "#9ca3af"
+                        }
+                        strokeWidth="1.5"
+                      />
+                    </svg>
+                  </td>
+
+                  {/* Change */}
+                  <td className="py-5 px-3">
+                    <div className="md:hidden text-[12px] text-gray-900 font-medium mb-0.5">
+                      {asset.price}
+                    </div>
+                    <span
+                      className={`text-[14px] font-medium flex items-center gap-0.5 ${
+                        asset.change < 0
+                          ? "text-red-500"
+                          : asset.change > 0
+                            ? "text-green-500"
+                            : "text-gray-500"
+                      }`}
+                    >
+                      {asset.change < 0 ? (
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 10 10"
+                          fill="none"
+                        >
+                          <path
+                            d="M5 2v6M5 8L2 5M5 8l3-3"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      ) : asset.change > 0 ? (
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 10 10"
+                          fill="none"
+                        >
+                          <path
+                            d="M5 8V2M5 2L2 5M5 2l3 3"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      ) : null}
+                      {Math.abs(asset.change).toFixed(2)}%
+                    </span>
+                  </td>
+
+                  {/* Market cap */}
+                  <td className="py-5 px-3 hidden md:table-cell text-[14px] text-gray-600">
+                    {asset.mktCap}
+                  </td>
+
+                  {/* Volume */}
+                  <td className="py-5 px-3 hidden lg:table-cell text-[14px] text-gray-600">
+                    {asset.volume}
+                  </td>
+
+                  {/* Trade button */}
+                  <td className="py-5 px-3 text-right">
+                    {asset.tradable && (
+                      <Link
+                        to="/signup"
+                        className="inline-flex px-5 py-2 text-[13px] font-semibold text-white bg-blue-600 rounded-full hover:bg-blue-700 transition"
+                      >
+                        Trade
+                      </Link>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
