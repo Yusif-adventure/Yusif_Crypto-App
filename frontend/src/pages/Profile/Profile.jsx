@@ -7,7 +7,12 @@ export const profileLoader = async () => {
     credentials: "include",
   });
 
+    // LOG: What did the server say?
+  console.log(`[LOADER] Response Status: ${response.status}`);
+
   if (!response.ok) {
+    console.warn("[LOADER] Auth failed, redirecting to /signin");
+
     throw redirect("/signin");
   }
 

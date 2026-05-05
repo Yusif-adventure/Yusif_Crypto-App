@@ -8,13 +8,24 @@ const generateToken = (userId) => {
   });
 };
 
+
 const setTokenCookie = (res, token) => {
-  res.cookie("token", token, {
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  // LOG: Check if this function is called and what the environment is
+  console.log(`[AUTH] Setting cookie. Production: ${isProduction}`);
+
+  const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProduction, 
+    sameSite: isProduction ? "none" : "lax", 
     maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  };
+
+  // LOG: Final check on options before sending
+  console.log("[AUTH] Cookie Options:", cookieOptions);
+
+  res.cookie("token", token, cookieOptions);
 };
 
 export const register = async (req, res, next) => {
@@ -65,31 +76,23 @@ export const register = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
-    const payload = req.method === "GET" ? req.query : req.body;
-    const { email, password } = payload;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required.",
-      });
-    }
+    const { email, password } = req.body;
+    console.log(`[LOGIN ATTEMPT] Email: ${email}`); // Add this
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials.",
-      });
+      console.log("[LOGIN FAIL] User not found"); // Add this
+      return res.status(401).json({ message: "Invalid credentials." });
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials.",
-      });
+      console.log("[LOGIN FAIL] Password mismatch"); // Add this
+      return res.status(401).json({ message: "Invalid credentials." });
     }
+    
+    // ... rest of code
+
 
     const token = generateToken(user._id);
     setTokenCookie(res, token);

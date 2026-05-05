@@ -10,10 +10,24 @@ import { notFound, errorHandler } from "./middleware/errorHandler.js";
 dotenv.config();
 
 const app = express();
+app.use(cors({ 
+  origin: process.env.NODE_ENV === "production" 
+    ? "https://netlify.app" 
+    : "http://localhost:5173", 
+  credentials: true 
+}));
 
-app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(cookieParser());
+
+// LOG: Track all incoming requests and their cookies
+app.use((req, res, next) => {
+  console.log(`[DEBUG] ${req.method} ${req.url}`);
+  console.log("[DEBUG] Cookies received:", req.cookies);
+  next();
+});
+
 
 await connectDB();
 
